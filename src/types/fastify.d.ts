@@ -1,4 +1,4 @@
-import { SupabaseClient } from '@supabase/supabase-js'
+import { SupabaseClient, User } from '@supabase/supabase-js'
 import { Sql } from 'postgres'
 import 'fastify'
 
@@ -15,5 +15,10 @@ declare module 'fastify' {
       DATABASE_URL: string
       CLIENT_URL: string
     }
+    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
+  }
+
+  interface FastifyRequest {
+    user: User
   }
 }
