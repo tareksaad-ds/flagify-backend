@@ -7,6 +7,7 @@ import dbPlugin from './plugins/db'
 import authenticatePlugin from './plugins/authenticate'
 import healthRoutes from './routes/health'
 import authRoutes from './routes/auth'
+import projectRoutes from './routes/projects'
 
 function buildApp() {
   const app = Fastify({ logger: true })
@@ -20,6 +21,7 @@ function buildApp() {
 
   app.register(healthRoutes)
   app.register(authRoutes)
+  app.register(projectRoutes)
 
   return app
 }
