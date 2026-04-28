@@ -40,6 +40,7 @@ function handleError(err: unknown, reply: any) {
   if (err instanceof AppError) {
     return reply.status(err.statusCode).send({ error: err.message })
   }
+  reply.log.error(err)
   return reply.status(500).send({ error: 'Internal server error' })
 }
 
