@@ -16,9 +16,11 @@ declare module 'fastify' {
       CLIENT_URL: string
     }
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
+    sdkAuthenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
   }
 
   interface FastifyRequest {
     user: User
+    sdkEnv: { environment_id: string; project_id: string }
   }
 }

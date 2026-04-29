@@ -108,7 +108,7 @@ export function createFlagsService(db: Sql) {
       ownerId: string,
       enabled: boolean,
       rolloutPercentage: number,
-      rules: unknown[],
+      rules: any[],
     ) {
       const [state] = await db`
         INSERT INTO flag_states (flag_id, environment_id, enabled, rollout_percentage, rules)
