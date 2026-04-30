@@ -110,25 +110,55 @@ export function createFlagsService(db: Sql) {
       rolloutPercentage: number,
       rules: any[],
     ) {
-      const [state] = await db`
-        INSERT INTO flag_states (flag_id, environment_id, enabled, rollout_percentage, rules)
-        SELECT f.id, e.id, ${enabled}, ${rolloutPercentage}, ${db.json(rules)}
-        FROM flags f
-        JOIN projects p ON p.id = f.project_id
-        JOIN environments e ON e.project_id = p.id
-        WHERE f.id = ${flagId}
-          AND p.id = ${projectId}
-          AND p.owner_id = ${ownerId}
-          AND e.id = ${envId}
-        ON CONFLICT (flag_id, environment_id) DO UPDATE SET
-          enabled = EXCLUDED.enabled,
-          rollout_percentage = EXCLUDED.rollout_percentage,
-          rules = EXCLUDED.rules,
-          updated_at = now()
-        RETURNING *
-      `
-      if (!state) throw new AppError(404, 'Flag or environment not found')
-      return state
+      return db.begin(async (sql) => {
+        const [before] = await sql`
+          SELECT enabled, rollout_percentage, rules
+          FROM flag_states
+          WHERE flag_id = ${flagId} AND environment_id = ${envId}
+        `
+
+        const [after] = await sql`
+          INSERT INTO flag_states (flag_id, environment_id, enabled, rollout_percentage, rules)
+          SELECT f.id, e.id, ${enabled}, ${rolloutPercentage}, ${sql.json(rules)}
+          FROM flags f
+          JOIN projects p ON p.id = f.project_id
+          JOIN environments e ON e.project_id = p.id
+          WHERE f.id = ${flagId}
+            AND p.id = ${projectId}
+            AND p.owner_id = ${ownerId}
+            AND e.id = ${envId}
+          ON CONFLICT (flag_id, environment_id) DO UPDATE SET
+            enabled = EXCLUDED.enabled,
+            rollout_percentage = EXCLUDED.rollout_percentage,
+            rules = EXCLUDED.rules,
+            updated_at = now()
+          RETURNING *
+        `
+        if (!after) throw new AppError(404, 'Flag or environment not found')
+
+        let action: string
+        if (!before) {
+          action = 'created'
+        } else if (before.enabled !== enabled) {
+          action = enabled ? 'enabled' : 'disabled'
+        } else {
+          action = 'updated'
+        }
+
+        const diff = {
+          before: before
+            ? { enabled: before.enabled, rollout_percentage: before.rollout_percentage, rules: before.rules }
+            : null,
+          after: { enabled, rollout_percentage: rolloutPercentage, rules },
+        }
+
+        await sql`
+          INSERT INTO audit_logs (flag_id, environment_id, user_id, action, diff)
+          VALUES (${flagId}, ${envId}, ${ownerId}, ${action}, ${sql.json(diff)})
+        `
+
+        return after
+      })
     },
   }
 }

@@ -1,11 +1,13 @@
 import { SupabaseClient, User } from '@supabase/supabase-js'
 import { Sql } from 'postgres'
+import { EventEmitter } from 'events'
 import 'fastify'
 
 declare module 'fastify' {
   interface FastifyInstance {
     supabase: SupabaseClient
     db: Sql
+    emitter: EventEmitter
     config: {
       PORT: string
       NODE_ENV: string
