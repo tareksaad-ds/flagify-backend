@@ -6,6 +6,7 @@ import supabasePlugin from './plugins/supabase'
 import dbPlugin from './plugins/db'
 import authenticatePlugin from './plugins/authenticate'
 import sdkAuthenticatePlugin from './plugins/sdk-authenticate'
+import emitterPlugin from './plugins/emitter'
 import healthRoutes from './routes/health'
 import authRoutes from './routes/auth'
 import projectRoutes from './routes/projects'
@@ -22,6 +23,7 @@ function buildApp() {
   app.register(dbPlugin)
   app.register(authenticatePlugin)
   app.register(sdkAuthenticatePlugin)
+  app.register(emitterPlugin)
 
   app.register(healthRoutes)
   app.register(authRoutes)

@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { AppError } from '../services/projects.service'
 import { createSdkService } from '../services/sdk.service'
 import { evaluateFlag, EvaluationContext, FlagState, Rule } from '../services/evaluation.service'
+import { FlagChangedEvent } from '../plugins/emitter'
 
 function handleError(err: unknown, reply: any) {
   if (err instanceof AppError) {
@@ -137,6 +138,53 @@ export default async function sdkRoutes(fastify: FastifyInstance) {
     } catch (err) {
       return handleError(err, reply)
     }
+  })
+
+  fastify.get('/sdk/stream', {
+    schema: {
+      tags: ['SDK'],
+      summary: 'Real-time flag updates via SSE',
+      headers: {
+        type: 'object',
+        required: ['x-sdk-key'],
+        properties: { 'x-sdk-key': { type: 'string' } },
+      },
+    },
+    preHandler: [fastify.sdkAuthenticate],
+  }, async (request, reply) => {
+    const { environment_id } = request.sdkEnv
+
+    reply.raw.setHeader('Content-Type', 'text/event-stream')
+    reply.raw.setHeader('Cache-Control', 'no-cache')
+    reply.raw.setHeader('Connection', 'keep-alive')
+    reply.raw.flushHeaders()
+
+    reply.raw.write('event: connected\ndata: {}\n\n')
+
+    const listener = (event: FlagChangedEvent) => {
+      if (event.environmentId !== environment_id) return
+      const data = JSON.stringify({
+        flagKey: event.flagKey,
+        enabled: event.enabled,
+        rollout_percentage: event.rollout_percentage,
+        rules: event.rules,
+      })
+      reply.raw.write(`event: flag_updated\ndata: ${data}\n\n`)
+    }
+
+    fastify.emitter.on('flag_changed', listener)
+
+    const keepAlive = setInterval(() => {
+      reply.raw.write(': ping\n\n')
+    }, 30000)
+
+    return new Promise<void>((resolve) => {
+      request.raw.on('close', () => {
+        fastify.emitter.off('flag_changed', listener)
+        clearInterval(keepAlive)
+        resolve()
+      })
+    })
   })
 
   fastify.get('/sdk/flags/:flagKey', {

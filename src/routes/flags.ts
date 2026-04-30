@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify'
 import { AppError } from '../services/projects.service'
 import { createFlagsService } from '../services/flags.service'
+import { createAuditService } from '../services/audit.service'
+import { FlagChangedEvent } from '../plugins/emitter'
 
 const flagParams = {
   type: 'object',
@@ -53,6 +55,15 @@ const flagStateBody = {
   additionalProperties: false,
 }
 
+const paginationQuery = {
+  type: 'object',
+  properties: {
+    limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+    offset: { type: 'integer', minimum: 0, default: 0 },
+  },
+  additionalProperties: false,
+}
+
 function handleError(err: unknown, reply: any) {
   if (err instanceof AppError) {
     return reply.status(err.statusCode).send({ error: err.message })
@@ -63,6 +74,7 @@ function handleError(err: unknown, reply: any) {
 
 export default async function flagRoutes(fastify: FastifyInstance) {
   const flags = createFlagsService(fastify.db)
+  const audit = createAuditService(fastify.db)
 
   fastify.post('/projects/:id/flags', {
     schema: {
@@ -176,7 +188,57 @@ export default async function flagRoutes(fastify: FastifyInstance) {
     }
     try {
       const state = await flags.updateFlagState(flagId, envId, id, request.user.id, enabled, rollout_percentage, rules)
+
+      const [flag] = await fastify.db`SELECT key FROM flags WHERE id = ${flagId}`
+      fastify.emitter.emit('flag_changed', {
+        environmentId: envId,
+        flagKey: flag.key,
+        enabled: state.enabled,
+        rollout_percentage: state.rollout_percentage,
+        rules: state.rules,
+      } satisfies FlagChangedEvent)
+
       return reply.status(200).send(state)
+    } catch (err) {
+      return handleError(err, reply)
+    }
+  })
+
+  fastify.get('/projects/:id/flags/:flagId/audit', {
+    schema: {
+      tags: ['Audit'],
+      summary: 'List audit history for a flag',
+      security: [{ Bearer: [] }],
+      params: flagParams,
+      querystring: paginationQuery,
+    },
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id, flagId } = request.params as { id: string; flagId: string }
+    const { limit = 50, offset = 0 } = request.query as { limit?: number; offset?: number }
+    try {
+      const logs = await audit.listFlagAudit(flagId, id, request.user.id, limit, offset)
+      return reply.status(200).send(logs)
+    } catch (err) {
+      return handleError(err, reply)
+    }
+  })
+
+  fastify.get('/projects/:id/audit', {
+    schema: {
+      tags: ['Audit'],
+      summary: 'List all audit events for a project',
+      security: [{ Bearer: [] }],
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+      querystring: paginationQuery,
+    },
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const { limit = 50, offset = 0 } = request.query as { limit?: number; offset?: number }
+    try {
+      const logs = await audit.listProjectAudit(id, request.user.id, limit, offset)
+      return reply.status(200).send(logs)
     } catch (err) {
       return handleError(err, reply)
     }
