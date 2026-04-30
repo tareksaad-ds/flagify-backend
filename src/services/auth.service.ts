@@ -5,12 +5,6 @@ export function createAuthService(supabase: SupabaseClient) {
     async register(email: string, password: string) {
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
-
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert({ id: data.user!.id, email: data.user!.email })
-      if (insertError) throw insertError
-
       return data
     },
 
