@@ -8,7 +8,7 @@ export function createAuditService(db: Sql) {
       projectId: string,
       ownerId: string,
       limit: number,
-      offset: number,
+      offset: number
     ) {
       const logs = await db`
         SELECT
@@ -39,12 +39,7 @@ export function createAuditService(db: Sql) {
       return logs
     },
 
-    async listProjectAudit(
-      projectId: string,
-      ownerId: string,
-      limit: number,
-      offset: number,
-    ) {
+    async listProjectAudit(projectId: string, ownerId: string, limit: number, offset: number) {
       const [project] = await db`
         SELECT id FROM projects WHERE id = ${projectId} AND owner_id = ${ownerId}
       `

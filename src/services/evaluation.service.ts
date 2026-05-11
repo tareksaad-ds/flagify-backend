@@ -53,7 +53,7 @@ export function evaluateFlag(flagState: FlagState, context: EvaluationContext): 
   if (!flagState.enabled) return false
 
   if (flagState.rules.length > 0) {
-    const matchedByRule = flagState.rules.some(rule => matchesRule(rule, context))
+    const matchedByRule = flagState.rules.some((rule) => matchesRule(rule, context))
     if (matchedByRule) return true
   }
 

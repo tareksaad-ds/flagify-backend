@@ -3,7 +3,13 @@ import { AppError } from './projects.service'
 
 export function createFlagsService(db: Sql) {
   return {
-    async createFlag(projectId: string, ownerId: string, key: string, name: string, description?: string) {
+    async createFlag(
+      projectId: string,
+      ownerId: string,
+      key: string,
+      name: string,
+      description?: string
+    ) {
       const normalizedKey = key.toLowerCase()
 
       try {
@@ -25,7 +31,8 @@ export function createFlagsService(db: Sql) {
         return flag
       } catch (err: any) {
         if (err instanceof AppError) throw err
-        if (err.code === '23505') throw new AppError(409, `Flag key "${normalizedKey}" already exists in this project`)
+        if (err.code === '23505')
+          throw new AppError(409, `Flag key "${normalizedKey}" already exists in this project`)
         throw err
       }
     },
@@ -74,7 +81,12 @@ export function createFlagsService(db: Sql) {
       return flag
     },
 
-    async updateFlag(flagId: string, projectId: string, ownerId: string, data: { name?: string; description?: string }) {
+    async updateFlag(
+      flagId: string,
+      projectId: string,
+      ownerId: string,
+      data: { name?: string; description?: string }
+    ) {
       const [flag] = await db`
         UPDATE flags SET ${db(data)}
         FROM projects p
@@ -108,7 +120,7 @@ export function createFlagsService(db: Sql) {
       ownerId: string,
       enabled: boolean,
       rolloutPercentage: number,
-      rules: any[],
+      rules: any[]
     ) {
       return db.begin(async (sql) => {
         const [before] = await sql`
@@ -147,7 +159,11 @@ export function createFlagsService(db: Sql) {
 
         const diff = {
           before: before
-            ? { enabled: before.enabled, rollout_percentage: before.rollout_percentage, rules: before.rules }
+            ? {
+                enabled: before.enabled,
+                rollout_percentage: before.rollout_percentage,
+                rules: before.rules,
+              }
             : null,
           after: { enabled, rollout_percentage: rolloutPercentage, rules },
         }
